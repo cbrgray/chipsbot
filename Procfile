@@ -1,0 +1,1 @@
+web: node --require dotenv/config out/bot.js
