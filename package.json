@@ -4,5 +4,12 @@
     "@types/tmi.js": "^1.4.2",
     "dotenv": "^8.2.0",
     "tmi.js": "^1.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.0.3"
+  },
+  "scripts": {
+    "start": "node --require dotenv/config out/bot.js",
+    "postinstall": "tsc"
   }
 }
