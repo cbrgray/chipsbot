@@ -1,0 +1,1 @@
+pm2 start out/bot.js --node-args="--require dotenv/config" 
