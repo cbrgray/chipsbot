@@ -1,1 +1,1 @@
-web: node --require dotenv/config out/bot.js
+worker: node out/bot.js
