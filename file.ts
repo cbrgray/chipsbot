@@ -15,7 +15,12 @@ export class File {
     }
 
     public read(): string {
-        return fs.readFileSync(this.path, this.encoding);
+        if (fs.existsSync(this.path)) {
+            return fs.readFileSync(this.path, this.encoding);
+        } else {
+            this.write('');
+            return '';
+        }
     }
 
     public readLines(): string[] {
