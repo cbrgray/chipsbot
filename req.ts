@@ -29,9 +29,7 @@ function decodeAuthStore(username: string): AuthStoreRecord {
 }
 
 async function setAuthForUser(username: string, accessToken: string, refreshToken: string) {
-    let userData: AuthStoreRecord = decodeAuthStore(username);
-    userData.accessToken = accessToken;
-    userData.refreshToken = refreshToken;
+    let userData: AuthStoreRecord = { username: username, userId: '', accessToken: accessToken, refreshToken: refreshToken };
 
     try {
         userData.userId = await getUserId(username, userData.accessToken);
