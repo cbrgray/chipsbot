@@ -1,7 +1,7 @@
 import { request, RequestOptions } from 'https';
 import { ClientRequest } from 'http';
 import { UnauthorizedError } from './unauthorized-error';
-import { File } from './file';
+import { AuthStoreRecord, getUserRecord, upsertUserRecord } from './data-access/auth-store';
 
 export { getAuthUrl, newAuthToken, getStreamInfo, updateStreamInfo };
 
@@ -10,26 +10,8 @@ const TWITCH_CLIENT_ID: string = 'fl4pj021zt2bm1ydiip7c7dv5np0tj';
 const TWITCH_CLIENT_SECRET: string = process.env.CLIENT_SECRET;
 const TWITCH_REDIRECT_URI: string = 'http://localhost'; // aint got me own domain
 
-const authStore: File = new File('authstore');
-
-function encodeAuthStore(username: string, accessToken: string, refreshToken: string, userId: string = ''): string {
-    return `${username}:${userId},${accessToken},${refreshToken}`;
-}
-
-type AuthStoreRecord = { username: string, userId: string, accessToken: string, refreshToken: string };
-
-function decodeAuthStore(username: string): AuthStoreRecord {
-    const data: string[][] = authStore.readLines().map(p => p.split(':'));
-    const userData: string[] = data.find(p => p[0] === username);
-    if (!userData) {
-        throw new Error(`Could not retrieve authstore data for user ${username}`);
-    }
-    const userDataFields: string[] = userData[1].split(',');
-    return { username: username, userId: userDataFields[0], accessToken: userDataFields[1], refreshToken: userDataFields[2] };
-}
-
 async function setAuthForUser(username: string, accessToken: string, refreshToken: string) {
-    let userData: AuthStoreRecord = { username: username, userId: '', accessToken: accessToken, refreshToken: refreshToken };
+    let userData: AuthStoreRecord = { username: username, userId: null, accessToken: accessToken, refreshToken: refreshToken };
 
     try {
         userData.userId = await getUserId(username, userData.accessToken);
@@ -37,15 +19,14 @@ async function setAuthForUser(username: string, accessToken: string, refreshToke
         throw new Error(`Failed to fetch user ID for ${username}`);
     }
     
-    const writeData: string = encodeAuthStore(userData.username, userData.accessToken, userData.refreshToken, userData.userId);
-    authStore.write(writeData);
+    upsertUserRecord(userData);
 }
 
 function getAuthUrl(scope: string = 'user:edit:broadcast'): string {
     return `https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&scope=${scope}`;
 }
 
-async function getUserId(channel: string, accessToken: string): Promise<string> {
+async function getUserId(channel: string, accessToken: string): Promise<number> {
     const options: RequestOptions = {
         host: 'api.twitch.tv',
         path: `/helix/users?login=${channel}`,
@@ -78,7 +59,7 @@ async function newAuthToken(username: string, code: string) {
 }
 
 async function refreshAuthToken(username: string) {
-    const userData: AuthStoreRecord = decodeAuthStore(username);
+    const userData: AuthStoreRecord = await getUserRecord(username);
     const options: RequestOptions = {
         host: 'id.twitch.tv',
         path: `/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&refresh_token=${userData.refreshToken}&grant_type=refresh_token`,
@@ -93,7 +74,7 @@ async function getStreamInfo(username: string): Promise<string> {
 }
 
 async function _getStreamInfo(username: string): Promise<string> {
-    const userData: AuthStoreRecord = decodeAuthStore(username);
+    const userData: AuthStoreRecord = await getUserRecord(username);
     const options: RequestOptions = {
         host: 'api.twitch.tv',
         path: `/helix/channels?broadcaster_id=${userData.userId}`,
@@ -111,7 +92,7 @@ async function updateStreamInfo(username: string, newGame: string, newTitle: str
 }
 
 async function _updateStreamInfo(username: string, newGame: string, newTitle: string) {
-    const userData: AuthStoreRecord = decodeAuthStore(username);
+    const userData: AuthStoreRecord = await getUserRecord(username);
     const options: RequestOptions = {
         host: 'api.twitch.tv',
         path: `/helix/channels?broadcaster_id=${userData.userId}`,

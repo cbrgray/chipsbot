@@ -4,40 +4,17 @@ import { File } from './file';
 import { ChatCommand } from './chat-command';
 import { ChatRelayCollection } from './chat-relay';
 import { Permission } from './permission';
+import { initialiseTable, getAllUsernames, upsertUserRecord, removeUserRecord } from './data-access/auth-store';
 
 
 const HOME_CHANNEL: string = '#chipsbot';
 
-let config: tmi.Options = {
-    identity: {
-        username: 'chipsbot',
-        password: process.env.CLIENT_PASS,
-    },
-    connection: {
-        reconnect: true,
-        secure: true,
-    },
-    channels: [
-        HOME_CHANNEL,
-    ]
-};
-
-const quotesFile: File = new File('quotation.txt');
+const quotesFile: File = new File('quotation.txt'); // TODO should be a table
 const jevonFile: File = new File('jvn.txt');
-const channelsFile: File = new File('squatting_rights');
-config.channels.push(...channelsFile.readLines());
 
-const client: tmi.Client = tmi.client(config);
+let client: tmi.Client;
 
-let chatRelays: ChatRelayCollection = new ChatRelayCollection((channel: string, msg: string) => client.say(channel, msg));
-
-// Chat events
-client.on('connected', (addr, port) => console.log(`* Connected to ${addr}:${port}`));
-client.on('disconnected', (reason) => console.log(`* Disconnected: ${reason}`));
-client.on('message', onMessageHandler);
-
-client.connect().catch((err) => console.log(`* Failed to connect: ${err}`));
-
+let chatRelays: ChatRelayCollection;
 
 const cmds: ChatCommand[] = [
     new ChatCommand().setName('help').setFunc(printHelpText).setHelp('[cmd_name] -> prints help text??'),
@@ -59,6 +36,40 @@ const callResponses: { identifier: string, response: string }[] = [ // TODO pars
     { identifier: 'shizze', response: 'shizze play outlast OneHand' },
     { identifier: 'krat', response: 'http://krat.club/ yes yes yes' },
 ];
+
+init();
+
+async function init() {
+    initialiseTable();
+
+    const usernames: string[] = await getAllUsernames();
+
+    const config: tmi.Options = {
+        identity: {
+            username: 'chipsbot',
+            password: process.env.CLIENT_PASS,
+        },
+        connection: {
+            reconnect: true,
+            secure: true,
+        },
+        channels: [
+            HOME_CHANNEL,
+            ...usernames.map(p => '#'+p)
+        ]
+    };
+
+    client = tmi.client(config);
+
+    chatRelays = new ChatRelayCollection((channel: string, msg: string) => client.say(channel, msg));
+
+    // Chat events
+    client.on('connected', (addr, port) => console.log(`* Connected to ${addr}:${port}`));
+    client.on('disconnected', (reason) => console.log(`* Disconnected: ${reason}`));
+    client.on('message', onMessageHandler);
+
+    client.connect().catch((err) => console.log(`* Failed to connect: ${err}`));
+}
 
 async function onMessageHandler(channel: string, userstate: tmi.Userstate, message: string, self: boolean) {
     if (self || userstate['message-type'] !== 'chat') {
@@ -87,7 +98,7 @@ async function onMessageHandler(channel: string, userstate: tmi.Userstate, messa
         try {
             await cmd.func(channel, userstate, commandArgs);
         } catch (e) {
-            client.say(channel, `Oopsie woopsie wee fucky wuckey a wittle fucko boingo: ${e.message}`);
+            client.say(channel, `Oopsie woopsie wee fucky wuckey a wittle fucko boingo: ${e.message}`); // TODO better error lmao
             console.error(e.message);
             if (e.stack) {
                 console.error(e.stack);
@@ -146,12 +157,12 @@ function join(channel: string, userstate: tmi.Userstate, commandArgs: string[]) 
 
     const targetChannel: string = '#' + userstate.username;
 
-    if (channelsFile.readLines().includes(targetChannel)) {
+    if (client.getChannels().includes(targetChannel)) {
         client.say(HOME_CHANNEL, `Already in ${targetChannel}`);
         return;
     }
     client.join(targetChannel);
-    channelsFile.appendLine(targetChannel);
+    upsertUserRecord({ username: targetChannel.substring(1), userId: null, accessToken: null, refreshToken: null }); // TODO full class for authstorerecord?
     client.say(HOME_CHANNEL, `Joining ${targetChannel}`);
 }
 
@@ -166,8 +177,7 @@ function part(channel: string, userstate: tmi.Userstate, commandArgs: string[]) 
     chatRelays.removeRelayChannel(channel);
     
     // Remove from saved channels
-    const newChannels: string[] = client.getChannels().filter(p => p !== channel && p !== HOME_CHANNEL);
-    channelsFile.write(newChannels.join('\n'));
+    removeUserRecord({ username: channel.substring(1), userId: null, accessToken: null, refreshToken: null });
     
     client.say(channel, 'Goodbye...');
     client.part(channel);
