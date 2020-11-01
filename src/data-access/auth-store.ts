@@ -1,4 +1,5 @@
-import { query } from './db';
+import { query } from 'data-access/db';
+import { toSqlValues } from '../util'; // wtf?
 
 export { AuthStoreRecord, initialiseTable, getAllUsernames, getUserRecord, upsertUserRecord, removeUserRecord };
 
@@ -51,6 +52,4 @@ async function removeUserRecord(record: AuthStoreRecord) {
     await query(`DELETE FROM ${tableName} WHERE username='${record.username}';`);
 }
 
-function toSqlValues(vals: any[]): string { // TODO to utils.ts
-    return vals.map(p => typeof p === 'string' ? `'${p}'` : (p === null || typeof p === 'undefined') ? 'NULL' : p).join(', ');
-}
+

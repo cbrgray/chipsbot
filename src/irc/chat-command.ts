@@ -1,5 +1,5 @@
+import { Permission } from 'irc/permission';
 import { Userstate } from 'tmi.js';
-import { Permission } from './permission';
 
 
 export class ChatCommand {
@@ -23,8 +23,7 @@ export class ChatCommand {
         return this;
     }
 
-    // TODO can we somehow run the permission check(s) automatically when calling func from here? or use decorators?
-    public setPermission(arg: Permission) { // TODO should be able to combine multiple permissions in an OR fashion
+    public setPermission(arg: Permission) {
         this.permission = arg;
         return this;
     }

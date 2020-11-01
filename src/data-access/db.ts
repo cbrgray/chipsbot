@@ -2,7 +2,7 @@ import { Pool, QueryResult } from 'pg';
 
 
 const dbPool = new Pool({
-    connectionString: process.env.DATABASE_URL,  // TODO prod and dev .env
+    connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
     }

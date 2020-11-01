@@ -1,15 +1,15 @@
 import * as tmi from 'tmi.js';
-import * as req from './req';
-import { File } from './file';
-import { ChatCommand } from './chat-command';
-import { ChatRelayCollection } from './chat-relay';
-import { Permission } from './permission';
-import { initialiseTable, getAllUsernames, upsertUserRecord, removeUserRecord } from './data-access/auth-store';
+import * as req from 'http/twitch-api';
+import { File } from 'data-access/file';
+import { initialiseTable, getAllUsernames, upsertUserRecord, removeUserRecord } from 'data-access/auth-store';
+import { ChatCommand } from 'irc/chat-command';
+import { ChatRelayCollection } from 'irc/chat-relay';
+import { Permission } from 'irc/permission';
 
 
 const HOME_CHANNEL: string = '#chipsbot';
 
-const quotesFile: File = new File('quotation.txt'); // TODO should be a table
+const quotesFile: File = new File('quotation.txt');
 const jevonFile: File = new File('jvn.txt');
 
 let client: tmi.Client;
@@ -32,7 +32,7 @@ const cmds: ChatCommand[] = [
     new ChatCommand().setName('streampreset').setFunc(streamPreset).setPermission(Permission.Mod).setHelp('[preset] -> prints available presets if no args provided, otherwise, changes the current channel title and game using [preset]'),
 ];
 
-const callResponses: { identifier: string, response: string }[] = [ // TODO parse from separate file
+const callResponses: { identifier: string, response: string }[] = [
     { identifier: 'shizze', response: 'shizze play outlast OneHand' },
     { identifier: 'krat', response: 'http://krat.club/ yes yes yes' },
 ];
@@ -98,7 +98,7 @@ async function onMessageHandler(channel: string, userstate: tmi.Userstate, messa
         try {
             await cmd.func(channel, userstate, commandArgs);
         } catch (e) {
-            client.say(channel, `Oopsie woopsie wee fucky wuckey a wittle fucko boingo: ${e.message}`); // TODO better error lmao
+            client.say(channel, `Oopsie woopsie wee fucky wuckey a wittle fucko boingo: ${e.message}`);
             console.error(e.message);
             if (e.stack) {
                 console.error(e.stack);
@@ -296,7 +296,6 @@ async function streamGame(channel: string, userstate: tmi.Userstate, commandArgs
 const p2id: string = 'Portal 2';
 const papoid: string = 'Papo & Yo';
 const dkc2id: string = "Donkey Kong Country 2: Diddy's Kong Quest";
-// really, if this bot should handle multiple users, we would need to store presets per user and allow them to modify via a new cmd TODO
 type StreamPreset = { id: string, title: string };
 const streamPresets: { [key: string] : StreamPreset } = {
     p2coop: { id: p2id, title: "Coop speedruns w/ Dire for 26" },

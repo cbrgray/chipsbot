@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { Util } from './util';
+import { charCount } from '../util';
 
 
 type Encoding = 'utf8' | 'ascii' | 'utf-8' | 'utf16le' | 'ucs2' | 'ucs-2' | 'base64' | 'latin1' | 'binary' | 'hex';
@@ -18,7 +18,6 @@ export class File {
         if (fs.existsSync(this.path)) {
             return fs.readFileSync(this.path, this.encoding);
         } else {
-            this.write('');
             return '';
         }
     }
@@ -49,7 +48,7 @@ export class File {
 
     public lineCount(): number {
         const text: string = this.read();
-        return Util.charCount(text, '\n');
+        return charCount(text, '\n') + 1;
     }
 
 }
