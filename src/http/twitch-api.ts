@@ -1,7 +1,7 @@
 import { request, RequestOptions } from 'https';
 import { ClientRequest } from 'http';
-import { AuthStoreRecord, getUserRecord, upsertUserRecord } from 'data-access/auth-store';
-import { UnauthorizedError } from 'http/unauthorized-error';
+import { AuthStoreRecord, getUserRecord, upsertUserRecord } from '../data-access/auth-store';
+import { UnauthorizedError } from '../http/unauthorized-error';
 
 export { getAuthUrl, newAuthToken, getStreamInfo, updateStreamInfo };
 

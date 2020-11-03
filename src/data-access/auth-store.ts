@@ -1,5 +1,5 @@
-import { query } from 'data-access/db';
-import { toSqlValues } from '../util'; // wtf?
+import { query } from '../data-access/db';
+import { toSqlValues } from '../util';
 
 export { AuthStoreRecord, initialiseTable, getAllUsernames, getUserRecord, upsertUserRecord, removeUserRecord };
 
@@ -51,5 +51,3 @@ async function upsertUserRecord(record: AuthStoreRecord) {
 async function removeUserRecord(record: AuthStoreRecord) {
     await query(`DELETE FROM ${tableName} WHERE username='${record.username}';`);
 }
-
-

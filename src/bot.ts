@@ -1,19 +1,17 @@
 import * as tmi from 'tmi.js';
-import * as req from 'http/twitch-api';
-import { File } from 'data-access/file';
-import { initialiseTable, getAllUsernames, upsertUserRecord, removeUserRecord } from 'data-access/auth-store';
-import { ChatCommand } from 'irc/chat-command';
-import { ChatRelayCollection } from 'irc/chat-relay';
-import { Permission } from 'irc/permission';
+import * as req from './http/twitch-api';
+import { File } from './data-access/file';
+import * as auth from './data-access/auth-store';
+import * as quotes from './data-access/quotation';
+import { ChatCommand } from './irc/chat-command';
+import { ChatRelayCollection } from './irc/chat-relay';
+import { Permission } from './irc/permission';
+import { formatDate } from './util';
 
 
 const HOME_CHANNEL: string = '#chipsbot';
-
-const quotesFile: File = new File('quotation.txt');
 const jevonFile: File = new File('jvn.txt');
-
 let client: tmi.Client;
-
 let chatRelays: ChatRelayCollection;
 
 const cmds: ChatCommand[] = [
@@ -22,8 +20,9 @@ const cmds: ChatCommand[] = [
     new ChatCommand().setName('part').setFunc(part).setPermission(Permission.ChannelOwner).setHelp('-> leaves the current channel'),
     new ChatCommand().setName('relay').setFunc(relay).setPermission(Permission.Mod).setHelp('channel -> starts relaying chat messages from channel into the current channel'),
     new ChatCommand().setName('stoprelay').setFunc(stopRelay).setPermission(Permission.Mod).setHelp('-> stops relaying chat messages from all channels into the current channel'),
-    new ChatCommand().setName('quote').setFunc(quote).setHelp('[number] -> prints a random quotation, [number] to specify'),
-    new ChatCommand().setName('addquote').setFunc(addQuote).setPermission(Permission.Mod).setHelp('quotation -> adds a new quotation'),
+    new ChatCommand().setName('quote').setFunc(quote).setHelp('[id] -> prints a random quotation, [id] to specify'),
+    new ChatCommand().setName('addquote').setFunc(addQuote).setPermission(Permission.Mod).setHelp('"quotation" quotee [date] -> adds a new quotation'),
+    new ChatCommand().setName('modifyquote').setFunc(modifyQuote).setPermission(Permission.None).setHelp('id "quotation" quotee [date] -> changes the quotation with the given id'),
     new ChatCommand().setName('jevon').setFunc(jevon).setHelp('-> jevon.txt'),
     new ChatCommand().setName('jevodds').setFunc(jevonOdds).setHelp('-> Jevon\'s odds'),
     new ChatCommand().setName('authorise').setFunc(authoriseBot).setPermission(Permission.ChannelOwner).setHelp('[code] -> prints instructions for authorisation if no args provided, otherwise, attempts to authorise using [code]'),
@@ -40,9 +39,12 @@ const callResponses: { identifier: string, response: string }[] = [
 init();
 
 async function init() {
-    initialiseTable();
+    await Promise.all([
+        auth.initialiseTable(),
+        quotes.initialiseTable(),
+    ]);
 
-    const usernames: string[] = await getAllUsernames();
+    const usernames: string[] = await auth.getAllUsernames();
 
     const config: tmi.Options = {
         identity: {
@@ -116,6 +118,8 @@ function userIsPermitted(channelName: string, userstate: tmi.Userstate, permissi
         return true;
     }
     switch (permission) {
+        case Permission.None:
+            return false;
         case Permission.ChannelOwner:
             return `#${userstate.username}` === channelName;
         case Permission.Mod:
@@ -162,7 +166,7 @@ function join(channel: string, userstate: tmi.Userstate, commandArgs: string[]) 
         return;
     }
     client.join(targetChannel);
-    upsertUserRecord({ username: targetChannel.substring(1), userId: null, accessToken: null, refreshToken: null }); // TODO full class for authstorerecord?
+    auth.upsertUserRecord({ username: targetChannel.substring(1), userId: null, accessToken: null, refreshToken: null }); // think we don't need to await here
     client.say(HOME_CHANNEL, `Joining ${targetChannel}`);
 }
 
@@ -177,7 +181,7 @@ function part(channel: string, userstate: tmi.Userstate, commandArgs: string[]) 
     chatRelays.removeRelayChannel(channel);
     
     // Remove from saved channels
-    removeUserRecord({ username: channel.substring(1), userId: null, accessToken: null, refreshToken: null });
+    auth.removeUserRecord({ username: channel.substring(1), userId: null, accessToken: null, refreshToken: null });
     
     client.say(channel, 'Goodbye...');
     client.part(channel);
@@ -196,43 +200,48 @@ function stopRelay(channel: string, userstate: tmi.Userstate, commandArgs: strin
     chatRelays.stopRelay(channel);
 }
 
-function quote(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
-    const quote: string = commandArgs.length == 1 ? getQuotationStr(parseInt(commandArgs[0])-1) : getRandomQuotationStr();
+async function quote(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
+    const record = await quotes.getQuotation(parseInt(commandArgs[0]) || null);
+    const date = record.customDate != null ? record.customDate : formatDate(record.date);
+    const quote: string = `#${record.index} "${record.quotation}" -${record.person}${date ? ', '+date : ''}`;
     client.say(channel, quote);
     chatRelays.reverseBroadcast(channel, quote);
 }
 
-function getQuotationStr(index: number): string {
-    const allQuotes: string[] = quotesFile.readLines();
-    const indexStr: string = `${index+1}`.padStart(allQuotes.length.toString().length, '0');
-    return `#${indexStr} ${allQuotes[index]}`;
-}
-
-function getRandomQuotationStr(): string {
-    const lineCount: number = quotesFile.lineCount();
-    const randomIndex: number = Math.floor(Math.random() * lineCount);
-    return getQuotationStr(randomIndex);
-}
-
-function addQuote(channel: string, userstate: tmi.Userstate, commandArgs: string[]) { // TODO: quotations with no date?YANKEE WIT NO BRIM
-    if (commandArgs.length === 0) {
+async function addQuote(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
+    if (commandArgs.length <= 1 || commandArgs.length >= 4) {
         client.say(channel, 'Invalid args');
         return;
     }
-    
-    const quote: string = commandArgs.join(' ');
-    
-    if (!/^".+" -\w+$/.test(quote)) {
-        client.say(channel, 'Invalid quotation format - must match "Quotation" -Name');
+
+    let potentialDate: Date = new Date(commandArgs[2]);
+    let record: quotes.QuotationRecord = { quotation: commandArgs[0], person: commandArgs[1], date: potentialDate };
+
+    if (commandArgs.length === 3 && isNaN(potentialDate.getTime())) {
+        record.date = new Date();
+        record.customDate = commandArgs[2];
+    }
+
+    const newQuoteNum: number = await quotes.insertQuotation(record);
+    client.say(channel, `Quotation #${newQuoteNum} added`);
+}
+
+async function modifyQuote(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
+    if (commandArgs.length <= 2 || commandArgs.length >= 5) {
+        client.say(channel, 'Invalid args');
         return;
     }
-    
-    const curDate: Date = new Date();
-    const fullQuote = `${quote}, ${curDate.toISOString().substring(0, 10)}`;
-    quotesFile.appendLine(fullQuote);
 
-    const newQuoteNum: number = quotesFile.readLines().length;
-    client.say(channel, `Quotation #${newQuoteNum} added`);
+    let potentialDate: Date = new Date(commandArgs[3]);
+    let record: quotes.QuotationRecord = { index: parseInt(commandArgs[0]), quotation: commandArgs[1], person: commandArgs[2], date: potentialDate };
+
+    if (commandArgs.length === 4 && isNaN(potentialDate.getTime())) {
+        record.date = new Date();
+        record.customDate = commandArgs[3];
+    }
+
+    await quotes.updateQuotation(record);
+    client.say(channel, `Quotation #${commandArgs[0]} updated`);
 }
 
 function jevon(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
@@ -316,8 +325,35 @@ async function streamPreset(channel: string, userstate: tmi.Userstate, commandAr
 
 // Helpers
 function getCommandArgs(str: string): { cmd: string, args: string[] } {
-    let args: string[] = str.split(' ');
-    let cmd: string = args.shift();
+    let protoArgs: string[] = str.split(' ');
+    let args: string[] = [];
+    const cmd: string = protoArgs.shift();
+    let isQuote: boolean = false;
+    let quotedCmd: string[] = [];
+
+    for (let arg of protoArgs) { // TODO what if an arg is " " or "" ?
+        if (arg.startsWith('"')) {
+            isQuote = true;
+            arg = arg.substring(1);
+            quotedCmd = [];
+        }
+        if (arg.endsWith('"')) {
+            isQuote = false;
+            quotedCmd.push(arg.substring(0, arg.length-1));
+            args.push(quotedCmd.join(' '));
+            continue;
+        }
+        
+        if (!isQuote) {
+            args.push(arg);
+        } else {
+            quotedCmd.push(arg);
+        }
+    }
+    if (isQuote) {
+        args = [];
+    }
+    
     return { cmd: cmd, args: args };
 }
 
