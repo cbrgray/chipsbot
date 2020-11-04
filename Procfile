@@ -1,1 +1,1 @@
-worker: node out/bot.js
+worker: NODE_ENV=PROD node out/bot.js

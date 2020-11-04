@@ -1,12 +1,9 @@
 import { Pool, QueryResult } from 'pg';
 
 
-const dbPool = new Pool({
+let dbPool: Pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-    // ssl: false
+    ssl: process.env.NODE_ENV === 'PROD' ? { rejectUnauthorized: false } : false
 });
 
 export async function query(query: string): Promise<QueryResult<any>> {
