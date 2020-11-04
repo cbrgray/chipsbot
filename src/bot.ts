@@ -26,8 +26,7 @@ const cmds: ChatCommand[] = [
     new ChatCommand().setName('jevon').setFunc(jevon).setHelp('-> jevon.txt'),
     new ChatCommand().setName('jevodds').setFunc(jevonOdds).setHelp('-> Jevon\'s odds'),
     new ChatCommand().setName('authorise').setFunc(authoriseBot).setPermission(Permission.ChannelOwner).setHelp('[code] -> prints instructions for authorisation if no args provided, otherwise, attempts to authorise using [code]'),
-    new ChatCommand().setName('streamtitle').setFunc(streamTitle).setPermission(Permission.Mod).setHelp('[title] -> prints stream info if no args provided, otherwise, changes the current channel title to [title]'),
-    new ChatCommand().setName('streamgame').setFunc(streamGame).setPermission(Permission.Mod).setHelp('[game_name] -> prints stream info if no args provided, otherwise, changes the current channel game to [game_name]'),
+    new ChatCommand().setName('streamtitle').setFunc(streamTitle).setPermission(Permission.Mod).setHelp('[title] [game] -> prints stream info if no args provided, otherwise, changes the current channel title to [title] and game to [game]'),
     new ChatCommand().setName('streampreset').setFunc(streamPreset).setPermission(Permission.Mod).setHelp('[preset] -> prints available presets if no args provided, otherwise, changes the current channel title and game using [preset]'),
 ];
 
@@ -280,26 +279,19 @@ async function authoriseBot(channel: string, userstate: tmi.Userstate, commandAr
 
 async function streamTitle(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
     const channelName: string = channel.substring(1); // remove the irc #
-    if (!commandArgs || commandArgs.length === 0) {
+    if (commandArgs.length === 0) {
         const info: string = await req.getStreamInfo(channelName);
         client.say(channel, info);
         return;
     }
-    const newTitle: string = commandArgs.join(' ');
-    await req.updateStreamInfo(channelName, null, newTitle);
+    if (commandArgs.length > 2) {
+        client.say(channel, 'Invalid args');
+        return;
+    }
+    const newTitle: string = commandArgs[0];
+    const newGame: string = commandArgs.length === 2 ? commandArgs[1] : null;
+    await req.updateStreamInfo(channelName, newGame, newTitle);
     client.say(channel, 'Stream title updated successfully');
-}
-
-async function streamGame(channel: string, userstate: tmi.Userstate, commandArgs: string[]) {
-    const channelName: string = channel.substring(1);
-    if (!commandArgs || commandArgs.length === 0) {
-        const info: string = await req.getStreamInfo(channelName);
-        client.say(channel, info);
-        return;
-    }
-    const newGameTitle: string = commandArgs.join(' ');
-    await req.updateStreamInfo(channelName, newGameTitle, null);
-    client.say(channel, 'Stream game updated successfully');
 }
 
 const p2id: string = 'Portal 2';
