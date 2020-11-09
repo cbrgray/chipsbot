@@ -2,6 +2,7 @@ import * as tmi from 'tmi.js';
 import * as auth from './data-access/auth-store';
 import * as quotes from './data-access/quotation';
 import { ChatCommandCollection, ChatCommand } from './irc/chat-command';
+import { getCallResponse } from './irc/call-response';
 import { parseCommandArgs } from './util';
 
 
@@ -9,11 +10,6 @@ global.HOME_CHANNEL = '#chipsbot';
 
 let client: tmi.Client;
 let cmdCollection: ChatCommandCollection;
-
-const callResponses: { identifier: string, response: string }[] = [
-    { identifier: 'shizze', response: 'shizze play outlast OneHand' },
-    { identifier: 'krat', response: 'http://krat.club/ yes yes yes' },
-];
 
 init();
 
@@ -62,14 +58,10 @@ async function onMessageHandler(channel: string, userstate: tmi.Userstate, messa
     if (commandName.startsWith(ChatCommand.Token)) {
         cmdCollection.tryRunCommand(commandName, channel, userstate, commandArgs);
     } else {
-        checkCallResponses(channel, message);
+        const resp: string = getCallResponse(message);
+        if (resp) {
+            client.say(channel, resp);
+        }
         cmdCollection.chatRelays.doRelay(channel, userstate.username, message);
-    }
-}
-
-function checkCallResponses(channel: string, message: string) {
-    const callResponse = callResponses.find(p => message.toLowerCase().includes(p.identifier)); // just take the first identifier found, in case there are multiple in one message
-    if (callResponse) {
-        client.say(channel, callResponse.response);
     }
 }
