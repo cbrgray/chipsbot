@@ -53,7 +53,7 @@ async function init() {
 }
 
 async function onMessageHandler(channel: string, userstate: tmi.Userstate, message: string, self: boolean) {
-    if (self || userstate['message-type'] !== 'chat') {
+    if (self || userstate['message-type'] !== 'chat' || userstate.username === 'chipsbot') {
         return; // ignore messages from the bot
     }
 

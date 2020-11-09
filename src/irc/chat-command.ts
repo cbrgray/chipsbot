@@ -51,7 +51,7 @@ export interface CmdInput {
 
 export class ChatCommand {
 
-    public static Token: string = '!';
+    public static Token: string = process.env.NODE_ENV === 'PROD' ? '!' : '~'; // so we don't need to shut down prod to run test
 
     public name: string = '';
     public func: (input: CmdInput) => any;
