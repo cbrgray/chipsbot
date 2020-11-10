@@ -10,8 +10,7 @@
 .history/
 
 .env
-authstore
-squatting_rights
+jvn.txt
 
 node_modules
 out

@@ -1,7 +1,7 @@
-import { request, RequestOptions } from 'https';
-import { ClientRequest } from 'http';
+import { RequestOptions } from 'https';
 import { AuthStoreRecord, getUserRecord, upsertUserRecord } from '../data-access/auth-store';
-import { UnauthorizedError } from '../http/unauthorized-error';
+import { UnauthorizedError } from './unauthorized-error';
+import { httpsRequest } from './request';
 
 export { getAuthUrl, newAuthToken, getStreamInfo, updateStreamInfo };
 
@@ -128,42 +128,4 @@ function retryFailedAuth(username: string, func: Function, funcArgs: any[]) {
             throw err; // cant throw in catch?
         }
     }); 
-}
-
-function httpsRequest(params: RequestOptions, postData?: string) {
-    return new Promise((resolve, reject) => {
-        let req: ClientRequest = request(params, (res) => {
-            if (res.statusCode === 401) {
-                return reject(new UnauthorizedError());
-            }
-            if (res.statusCode < 200 || res.statusCode >= 300) {
-                return reject(new Error(`${res.statusCode}, ${res.statusMessage}`));
-            }
-            
-            // on response data, cumulate it
-            let body: any[] = [];
-            res.on('data', (chunk) => body.push(chunk));
-            
-            // on end, parse and resolve
-            res.on('end', () => {
-                try {
-                    if (body.length) {
-                        body = JSON.parse(Buffer.concat(body).toString());
-                    }
-                } catch(e) {
-                    reject(e);
-                }
-                resolve(body);
-            });
-        });
-        
-        req.on('error', (err) => reject(err));
-        
-        // if there's post data, write it to the request
-        if (postData) {
-            req.write(postData);
-        }
-        
-        req.end();
-    });
 }

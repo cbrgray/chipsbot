@@ -11,9 +11,7 @@ global.HOME_CHANNEL = '#chipsbot';
 let client: tmi.Client;
 let cmdCollection: ChatCommandCollection;
 
-init();
-
-async function init() {
+(async function init() {
     await Promise.all([
         auth.initialiseTable(),
         quotes.initialiseTable(),
@@ -46,9 +44,9 @@ async function init() {
     client.on('message', onMessageHandler);
 
     client.connect().catch((err) => console.log(`* Failed to connect: ${err}`));
-}
+})();
 
-async function onMessageHandler(channel: string, userstate: tmi.Userstate, message: string, self: boolean) {
+function onMessageHandler(channel: string, userstate: tmi.Userstate, message: string, self: boolean) {
     if (self || userstate['message-type'] !== 'chat' || userstate.username === 'chipsbot') {
         return; // ignore messages from the bot
     }
@@ -56,7 +54,7 @@ async function onMessageHandler(channel: string, userstate: tmi.Userstate, messa
     let [commandName, commandArgs] = parseCommandArgs(message.trim());
     
     if (commandName.startsWith(ChatCommand.Token)) {
-        cmdCollection.tryRunCommand(commandName, channel, userstate, commandArgs);
+        cmdCollection.tryRunCommand(commandName.substring(ChatCommand.Token.length), channel, userstate, commandArgs);
     } else {
         const resp: string = getCallResponse(message);
         if (resp) {

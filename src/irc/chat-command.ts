@@ -23,19 +23,20 @@ export class ChatCommandCollection {
         new ChatCommand().setName('streampreset').setFunc(ircCommands.streamPreset).setPermission(Permission.Mod).setHelp([], ['preset'], 'prints available presets if no args provided, otherwise, changes the current channel title and game using [preset]'),
     ];
 
-    private client: Client;
-
-    constructor(client: Client) {
+    constructor(private client: Client) {
         this.client = client;
         this.chatRelays = new ChatRelayCollection((channel: string, msg: string) => client.say(channel, msg));
     }
 
-    public tryRunCommand(commandName: string, channel: string, userstate: Userstate, commandArgs: string[]) {
-        commandName = commandName.substring(ChatCommand.Token.length);
-        const cmd: ChatCommand = this.cmds.find(p => p.name === commandName);
-        if (cmd) {
-            cmd.run(this, { client: this.client, channel: channel, userstate: userstate, commandArgs: commandArgs, chatRelays: this.chatRelays, allCommands: this.cmds });
-        }
+    public async tryRunCommand(commandName: string, channel: string, userstate: Userstate, commandArgs: string[]) {
+        await this.cmds.find(p => p.name === commandName)?.run(this, {
+            client: this.client,
+            channel: channel,
+            userstate: userstate,
+            commandArgs: commandArgs,
+            chatRelays: this.chatRelays,
+            allCommands: this.cmds
+        });
     }
 
 }
