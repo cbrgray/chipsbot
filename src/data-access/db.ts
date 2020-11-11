@@ -18,7 +18,7 @@ function overrideDateParser() {
     const DATE_OID: number = 1082;
     const TIMESTAMPTZ_OID: number = 1184;
     const TIMESTAMP_OID: number = 1114;
-    const parseFn = (val) => {
+    const parseFn = (val: any) => {
         return val;
     };
     types.setTypeParser(DATE_OID, parseFn);

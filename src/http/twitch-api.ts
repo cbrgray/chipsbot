@@ -120,7 +120,7 @@ async function _updateStreamInfo(username: string, newGame: string, newTitle: st
 }
 
 function retryFailedAuth(username: string, func: Function, funcArgs: any[]) {
-    return func(...funcArgs).catch(err => {
+    return func(...funcArgs).catch((err: Error) => {
         if (err instanceof UnauthorizedError) {
             console.log(`Calling function failed due to 401 unauthorized, retrying once after recovery`);
             return refreshAuthToken(username).then(() => func(...funcArgs));
