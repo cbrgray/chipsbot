@@ -82,7 +82,7 @@ export class ChatCommand {
         return this;
     }
 
-    public async run(thisRef, input: CmdInput) {
+    public async run(thisRef: any, input: CmdInput) {
         if (!this.userIsPermitted(input.channel, input.userstate, this.permission)) {
             console.log(`* Permission denied for user ${input.userstate.username} on ${input.channel} using command: ${this.name}`);
             input.client.say(input.channel, 'Permission denied');
