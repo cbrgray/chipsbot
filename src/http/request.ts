@@ -48,10 +48,19 @@ export function httpsRequest(params: RequestOptions, postData?: string) {
 export namespace CommonReq {
 
     export async function fetch(url: URL) {
+        return await request(url, 'GET');
+    }
+
+    export async function post(url: URL, headers?: any) {
+        return await request(url, 'POST', headers);
+    }
+
+    async function request(url: URL, method: string, headers?: any) {
         const options: RequestOptions = {
             host: url.hostname,
             path: `${url.pathname}${url.search}`,
-            method: 'GET',
+            method: method,
+            headers: headers
         };
         const response: any = await httpsRequest(options);
         return response;

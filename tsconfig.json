@@ -4,6 +4,7 @@
     "module": "CommonJS",
     "sourceMap": true,
     "noImplicitAny": true,
+    "allowJs": true,
     "rootDir": "src",
     "baseUrl": "src",
     "outDir": "out"

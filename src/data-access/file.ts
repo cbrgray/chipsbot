@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { charCount } from '../util';
+import * as dch from '../data-access/dropbox-content-hasher';
 
 
 type Encoding = 'utf8' | 'ascii' | 'utf-8' | 'utf16le' | 'ucs2' | 'ucs-2' | 'base64' | 'latin1' | 'binary' | 'hex';
@@ -46,9 +47,20 @@ export class File {
         this.append('\n' + data);
     }
 
+    public delete(): void {
+        fs.unlinkSync(this.path);
+    }
+
     public lineCount(): number {
         const text: string = this.read();
         return charCount(text, '\n') + 1;
+    }
+
+    public getDropboxHash(): string {
+        const hasher = dch.create();
+        const chunk: Buffer = fs.readFileSync(this.path);
+        hasher.update(chunk);
+        return hasher.digest('hex');
     }
 
 }

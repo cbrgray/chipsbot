@@ -3,14 +3,17 @@ import { CmdInput } from '../../irc/chat-command';
 import { CommonReq } from '../../http/request';
 
 
-const PUBLIC_JEVON_URL: string = 'https://dl.dropboxusercontent.com/s/rtmkmps94lxplo7/jvn.txt?dl=0';
+const PUBLIC_JEVON_URL: string = process.env.JVN_FILE_DROPBOX;
 const jevonFile: File = new File('jvn.txt');
 
 (async function fetchJevonData() {
-    if (!jevonFile.read()) {
-        let data: string = await CommonReq.fetch(new URL(PUBLIC_JEVON_URL));
-        jevonFile.write(data);
+    let tempJevonFile: File = new File('jvn.temp.txt'); // dropbox api currently has no `content_hash` for shared files... so download it every time and compare :(
+    tempJevonFile.write(await CommonReq.fetch(new URL(PUBLIC_JEVON_URL)));
+
+    if (!jevonFile.read() || (jevonFile.getDropboxHash() !== tempJevonFile.getDropboxHash())) {
+        jevonFile.write(tempJevonFile.read());
     }
+    tempJevonFile.delete();
 })();
 
 export function jevon(input: CmdInput) {
