@@ -1,10 +1,40 @@
-import { ChatRelay } from '../../src/irc/chat-relay';
+import { ChatRelayCollection, ChatRelay } from '../../src/irc/chat-relay';
 
+
+const channelName1: string = 'channel1';
+const channelName2: string = 'channel2';
+
+describe('ChatRelayCollection', () => {
+
+    let relayCollection: ChatRelayCollection;
+    let msgCallback: jest.Mock;
+
+    beforeEach(() => {
+        msgCallback = jest.fn();
+        relayCollection = new ChatRelayCollection(msgCallback);
+    });
+
+    describe('startRelay', () => {
+
+        test('does not register a new listener for a channel that is already relayed', () => {
+            relayCollection.startRelay(channelName1, channelName2, [channelName1, channelName2]);
+            expect(msgCallback).toBeCalledTimes(1);
+            relayCollection.doRelay(channelName2, 'a', 'b');
+            expect(msgCallback).toBeCalledTimes(2);
+            msgCallback.mockClear();
+
+            relayCollection.startRelay(channelName1, channelName2, [channelName1, channelName2]); // try to relay same channel again
+            expect(msgCallback).toBeCalledTimes(1);
+            relayCollection.doRelay(channelName2, 'a', 'b');
+            expect(msgCallback).toBeCalledTimes(2);
+        });
+
+    });
+
+});
 
 describe('ChatRelay', () => {
 
-    const channelName1: string = 'channel1';
-    const channelName2: string = 'channel2';
     let relay: ChatRelay;
 
     beforeEach(() => {

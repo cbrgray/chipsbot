@@ -29,8 +29,8 @@ export class ChatRelayCollection {
         if (!curRelay) {
             curRelay = new ChatRelay(channel); // could also pass a callback in this constructor instead, but idk meh
             this.chatRelays.push(curRelay);
+            this.startListeningTo(curRelay);
         }
-        this.startListeningTo(curRelay);
         return curRelay;
     }
     
