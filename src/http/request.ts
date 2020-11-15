@@ -9,6 +9,12 @@ export function httpsRequest(params: RequestOptions, postData?: string) {
             if (res.statusCode === 401) {
                 return reject(new UnauthorizedError());
             }
+            if (res.statusCode === 302) {
+                const redirectUrl = new URL(res.headers.location);
+                params.host = redirectUrl.hostname;
+                params.path = `${redirectUrl.pathname}${redirectUrl.search}`;
+                return resolve(httpsRequest(params, postData));
+            }
             if (res.statusCode < 200 || res.statusCode >= 300) {
                 return reject(new Error(`${res.statusCode}, ${res.statusMessage}`));
             }
@@ -56,6 +62,9 @@ export namespace CommonReq {
     }
 
     async function request(url: URL, method: string, headers?: any) {
+        if (url.protocol === 'http:') {
+            console.warn('Url uses HTTP! Probably won\'t work or will return a redirect');
+        }
         const options: RequestOptions = {
             host: url.hostname,
             path: `${url.pathname}${url.search}`,
