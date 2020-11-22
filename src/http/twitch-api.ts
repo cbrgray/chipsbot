@@ -14,7 +14,7 @@ async function setAuthForUser(username: string, accessToken: string, refreshToke
     let userData: AuthStoreRecord = { username: username, userId: null, accessToken: accessToken, refreshToken: refreshToken };
 
     try {
-        userData.userId = await getUserId(username, userData.accessToken);
+        userData.userId = await getUserId(username, userData.accessToken); // TODO: try retrieve record from db - if already has userId, don't need to get again?
     } catch (e) {
         throw new Error(`Failed to fetch user ID for ${username}`);
     }
@@ -70,7 +70,7 @@ async function refreshAuthToken(username: string) {
 }
 
 async function getStreamInfo(username: string): Promise<string> {
-    return await retryFailedAuth(username, _getStreamInfo, [username]);
+    return await retryFailedAuth(username, _getStreamInfo, username);
 }
 
 async function _getStreamInfo(username: string): Promise<string> {
@@ -87,11 +87,11 @@ async function _getStreamInfo(username: string): Promise<string> {
     return `${r.title} - ${r.game_name}`;
 }
 
-async function updateStreamInfo(username: string, newGame: string, newTitle: string) {
-    await retryFailedAuth(username, _updateStreamInfo, [username, newGame, newTitle]);
+async function updateStreamInfo(username: string, newGame: string, newTitle: string): Promise<void> {
+    await retryFailedAuth(username, _updateStreamInfo, username, newGame, newTitle);
 }
 
-async function _updateStreamInfo(username: string, newGame: string, newTitle: string) {
+async function _updateStreamInfo(username: string, newGame: string, newTitle: string): Promise<void> {
     const userData: AuthStoreRecord = await getUserRecord(username);
     const options: RequestOptions = {
         host: 'api.twitch.tv',
@@ -107,8 +107,8 @@ async function _updateStreamInfo(username: string, newGame: string, newTitle: st
             const newGameId = await getGameId(newGame, userData.accessToken);
             newInfo.push(`"game_id":"${newGameId}"`);
         } catch (e) {
-            console.error(e.message);
-            throw new Error(`Failed to fetch game ID for ${newGame}`);
+            console.error(`Failed to fetch game ID for ${newGame}`);
+            throw e;
         }
     }
     if (newTitle) {
@@ -119,13 +119,15 @@ async function _updateStreamInfo(username: string, newGame: string, newTitle: st
     await httpsRequest(options, postData);
 }
 
-function retryFailedAuth(username: string, func: Function, funcArgs: any[]) {
-    return func(...funcArgs).catch((err: Error) => {
+async function retryFailedAuth<T, Q extends any[]>(username: string, func: (...args: Q) => Promise<T>, ...funcArgs: Q): Promise<T> {
+    try {
+        return await func(...funcArgs);
+    } catch (err) {
         if (err instanceof UnauthorizedError) {
             console.log(`Calling function failed due to 401 unauthorized, retrying once after recovery`);
             return refreshAuthToken(username).then(() => func(...funcArgs));
         } else {
-            throw err; // cant throw in catch?
+            throw err;
         }
-    }); 
+    } 
 }
