@@ -10,20 +10,20 @@ const TWITCH_CLIENT_ID: string = 'fl4pj021zt2bm1ydiip7c7dv5np0tj';
 const TWITCH_CLIENT_SECRET: string = process.env.CLIENT_SECRET;
 const TWITCH_REDIRECT_URI: string = 'http://localhost'; // aint got me own domain
 
-async function setAuthForUser(username: string, accessToken: string, refreshToken: string) {
-    let userData: AuthStoreRecord = { username: username, userId: null, accessToken: accessToken, refreshToken: refreshToken };
-
-    try {
-        userData.userId = await getUserId(username, userData.accessToken); // TODO: try retrieve record from db - if already has userId, don't need to get again?
-    } catch (e) {
-        throw new Error(`Failed to fetch user ID for ${username}`);
+async function setAuthForUser(userData: AuthStoreRecord) {
+    if (userData.userId == null) {
+        try {
+            userData.userId = await getUserId(userData.username, userData.accessToken);
+        } catch (e) {
+            throw new Error(`Failed to fetch user ID for ${userData.username}`);
+        }
     }
     
     upsertUserRecord(userData);
 }
 
 function getAuthUrl(scope: string = 'user:edit:broadcast'): string {
-    return `https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&scope=${scope}`;
+    return new URL(`https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&scope=${scope}`).toString();
 }
 
 async function getUserId(channel: string, accessToken: string): Promise<number> {
@@ -55,7 +55,7 @@ async function newAuthToken(username: string, code: string) {
         method: 'POST',
     };
     const response: any = await httpsRequest(options);
-    await setAuthForUser(username, response.access_token, response.refresh_token);
+    await setAuthForUser({ username: username, accessToken: response.access_token, refreshToken: response.refresh_token, userId: null });
 }
 
 async function refreshAuthToken(username: string) {
@@ -66,7 +66,9 @@ async function refreshAuthToken(username: string) {
         method: 'POST',
     };
     const response: any = await httpsRequest(options);
-    await setAuthForUser(username, response.access_token, response.refresh_token);
+    userData.accessToken = response.access_token;
+    userData.refreshToken = response.refresh_token;
+    await setAuthForUser(userData);
 }
 
 async function getStreamInfo(username: string): Promise<string> {
