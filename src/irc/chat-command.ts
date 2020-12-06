@@ -25,7 +25,6 @@ export class ChatCommandCollection {
     ];
 
     constructor(private client: Client) {
-        this.client = client;
         this.chatRelays = new ChatRelayCollection((channel: string, msg: string) => client.say(channel, msg));
     }
 
