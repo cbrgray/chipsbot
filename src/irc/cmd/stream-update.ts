@@ -41,11 +41,16 @@ const streamPresets: { [key: string] : StreamPreset } = {
 
 export async function streamPreset(input: CmdInput) {
     const channelName: string = input.channel.substring(1);
-    if (!input.commandArgs || input.commandArgs.length !== 1) {
+    if (!input.commandArgs || input.commandArgs.length === 0) {
         input.client.say(input.channel, Object.keys(streamPresets).join(', '));
         return;
     }
     const preset: StreamPreset = streamPresets[input.commandArgs[0]];
-    await req.updateStreamInfo(channelName, preset.id, preset.title);
+    if (!preset) {
+        input.client.say(input.channel, 'Invalid preset');
+        return;
+    }
+    let title = input.commandArgs.length === 2 ? input.commandArgs[1] : preset.title;
+    await req.updateStreamInfo(channelName, preset.id, title);
     input.client.say(input.channel, 'Stream title updated successfully');
 }
