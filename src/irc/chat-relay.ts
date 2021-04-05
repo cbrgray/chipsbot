@@ -71,7 +71,7 @@ export class ChatRelay {
     
     public doRelay(targetChannel: string, displayName: string, message: string) {
         if (this.relayChannels.includes(targetChannel)) {
-            this.emitMessage(`${displayName} > ${message}`);
+            this.emitMessage(`<${displayName}> ${message}`);
         }
     }
     
