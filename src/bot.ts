@@ -63,3 +63,11 @@ function onMessageHandler(channel: string, userstate: tmi.Userstate, message: st
         cmdCollection.chatRelays.doRelay(channel, userstate.username, message);
     }
 }
+
+process.on('SIGTERM', async () => {
+    console.info('SIGTERM signal received.');
+    let channelRelayList: string[] = cmdCollection.chatRelays.chatRelays.map(p => p.channel);
+    await Promise.all(channelRelayList.map(channel => client.say(channel, 'Disconnecting')));
+    await client.disconnect();
+    process.exit(0);
+});

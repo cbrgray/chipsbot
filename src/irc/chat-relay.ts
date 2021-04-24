@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 
 export class ChatRelayCollection {
 
-    private chatRelays: ChatRelay[] = [];
+    public chatRelays: ChatRelay[] = [];
     private messageCallback: (channel: string, msg: string) => void;
 
     constructor(messageCallback: (channel: string, msg: string) => void) {
